@@ -1,5 +1,5 @@
 // キャッシュ版。レシピを追加したら CACHE の番号を上げること
-const CACHE = 'tsumami-v1';
+const CACHE = 'tsumami-v2';
 const SHELL = ['./', './index.html', './manifest.json', './icons/icon-192.png'];
 
 self.addEventListener('install', e => {
