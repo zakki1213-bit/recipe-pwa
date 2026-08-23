@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#eb6834">
+<title>つまみの作り置き</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="つまみ">
+<style>
+:root{color-scheme:light;
+ --page:#f9f9f7;--surface:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;
+ --border:rgba(11,11,11,.12);--accent:#eb6834;--crit:#d03b3b;
+ --warnbg:#fdf6e8;--critbg:#fdeeee;--chip:#f0efec;--bar:#fcfcfb}
+@media (prefers-color-scheme:dark){:root{color-scheme:dark;
+ --page:#0d0d0d;--surface:#1a1a19;--ink:#fff;--ink2:#c3c2b7;--muted:#898781;
+ --border:rgba(255,255,255,.12);--accent:#f07a4a;--crit:#ff6b6b;
+ --warnbg:#241f14;--critbg:#2a1717;--chip:#2c2c2a;--bar:#151514}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{background:var(--page);color:var(--ink);
+ font-family:system-ui,-apple-system,"Hiragino Sans","Segoe UI",sans-serif;
+ line-height:1.7;font-size:16px;padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+.wrap{max-width:720px;margin:0 auto;padding:0 14px}
+header{position:sticky;top:0;z-index:20;background:var(--bar);border-bottom:1px solid var(--border);
+ padding:calc(10px + env(safe-area-inset-top)) 14px 10px}
+header .hin{max-width:720px;margin:0 auto;display:flex;align-items:baseline;gap:10px}
+h1{font-size:19px;margin:0;letter-spacing:.02em}
+header .up{margin-left:auto;font-size:11px;color:var(--muted)}
+.search{width:100%;margin:12px 0 8px;padding:11px 14px;font-size:16px;border-radius:10px;
+ border:1px solid var(--border);background:var(--surface);color:var(--ink)}
+.search::placeholder{color:var(--muted)}
+.filters{display:flex;gap:7px;overflow-x:auto;padding:4px 0 10px;-webkit-overflow-scrolling:touch}
+.filters::-webkit-scrollbar{display:none}
+.f{flex:0 0 auto;background:var(--chip);color:var(--ink2);border:none;font-size:13px;
+ padding:7px 14px;border-radius:99px;font-family:inherit;cursor:pointer}
+.f.on{background:var(--accent);color:#fff}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+ padding:14px 16px;margin:0 0 10px;cursor:pointer}
+.card h3{font-size:17px;margin:0 0 6px;line-height:1.4}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 7px}
+.chip{background:var(--chip);color:var(--ink2);font-size:12px;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.chip.k{background:var(--accent);color:#fff}
+.chip.w{background:var(--warnbg);color:var(--accent)}
+.sub{font-size:13px;color:var(--muted);margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.empty{color:var(--muted);text-align:center;padding:40px 0;font-size:14px}
+/* 詳細 */
+#detail{position:fixed;inset:0;z-index:40;background:var(--page);overflow-y:auto;display:none;
+ -webkit-overflow-scrolling:touch}
+#detail.on{display:block}
+.dbar{position:sticky;top:0;background:var(--bar);border-bottom:1px solid var(--border);
+ padding:calc(8px + env(safe-area-inset-top)) 14px 8px;display:flex;align-items:center;gap:10px}
+.back{background:none;border:none;color:var(--accent);font-size:16px;font-family:inherit;
+ padding:6px 4px;cursor:pointer}
+.dbody{max-width:720px;margin:0 auto;padding:16px 16px 60px}
+.dbody h2{font-size:22px;margin:0 0 10px;line-height:1.35}
+.sec{margin:22px 0 0}
+.sec h4{font-size:13px;color:var(--muted);margin:0 0 8px;font-weight:600;letter-spacing:.06em}
+.ing{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin:0}
+.ing li{margin:4px 0;font-size:15px}
+ol.steps{margin:0;padding-left:0;list-style:none;counter-reset:s}
+ol.steps li{counter-increment:s;position:relative;padding:0 0 14px 38px;font-size:15px}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:1px;width:25px;height:25px;
+ border-radius:50%;background:var(--accent);color:#fff;font-size:13px;display:flex;
+ align-items:center;justify-content:center;font-weight:600}
+.tip{background:var(--warnbg);border-left:3px solid var(--accent);padding:10px 14px;
+ border-radius:0 8px 8px 0;font-size:14px;margin:0 0 8px}
+.tip b{display:block;color:var(--accent);margin-bottom:2px}
+/* 買い物 */
+.pick{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:6px 4px;margin:0 0 16px}
+.row{display:flex;align-items:center;gap:11px;padding:9px 12px;font-size:15px;cursor:pointer}
+.row input{width:21px;height:21px;accent-color:var(--accent);flex:0 0 auto;margin:0}
+.row span.d{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}
+.row.done span.n{text-decoration:line-through;color:var(--muted)}
+.total{display:flex;padding:12px 16px;background:var(--chip);border-radius:10px;
+ font-size:15px;font-weight:600;margin:0 0 16px}
+.total span:last-child{margin-left:auto;color:var(--accent)}
+h2.sech{font-size:15px;margin:24px 0 10px;padding-bottom:7px;border-bottom:1px solid var(--border)}
+.note{font-size:13px;color:var(--ink2);background:var(--surface);border:1px solid var(--border);
+ border-radius:10px;padding:12px 14px;margin:0 0 12px}
+.danger{background:var(--critbg);border-left:3px solid var(--crit);border-radius:0 8px 8px 0;
+ padding:12px 15px;font-size:14px;margin:0 0 12px}
+.danger b{color:var(--crit)}
+ul.pl{margin:0;padding-left:20px;font-size:14px}
+ul.pl li{margin:5px 0}
+.seas{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+/* タブ */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--bar);
+ border-top:1px solid var(--border);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;border:none;color:var(--muted);font-family:inherit;
+ font-size:11px;padding:9px 0 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
+nav button i{font-style:normal;font-size:19px;line-height:1}
+nav button.on{color:var(--accent)}
+.tabpane{display:none}.tabpane.on{display:block}
+</style>
+</head>
+<body>
+
+<header><div class="hin"><h1>つまみの作り置き</h1><span class="up" id="up"></span></div></header>
+
+<main class="wrap">
+  <!-- レシピ -->
+  <section class="tabpane on" id="pane-list">
+    <input class="search" id="q" type="search" placeholder="品名・材料で探す" autocomplete="off">
+    <div class="filters" id="filters"></div>
+    <div id="cards"></div>
+  </section>
+
+  <!-- 買い物 -->
+  <section class="tabpane" id="pane-shop">
+    <h2 class="sech">作るものを選ぶ</h2>
+    <div class="pick" id="pick"></div>
+    <h2 class="sech">買うもの</h2>
+    <div class="total" id="total"><span>合計</span><span id="sum">0円</span></div>
+    <div class="pick" id="shoplist"></div>
+    <div class="note" id="pantry"></div>
+  </section>
+
+  <!-- メモ -->
+  <section class="tabpane" id="pane-info">
+    <h2 class="sech">このアプリのレシピの条件</h2>
+    <ul class="pl" id="cond"></ul>
+    <h2 class="sech">使える調味料</h2>
+    <div class="seas" id="seas"></div>
+    <div class="note" id="noseas"></div>
+    <div id="guide"></div>
+  </section>
+</main>
+
+<div id="detail"><div class="dbar"><button class="back" id="back">‹ もどる</button></div><div class="dbody" id="dbody"></div></div>
+
+<nav>
+  <button class="on" data-t="list"><i>🍲</i>レシピ</button>
+  <button data-t="shop"><i>🛒</i>買い物</button>
+  <button data-t="info"><i>📋</i>メモ</button>
+</nav>
+
+<script>
+var D=null, filter='all', LS='recipe_pwa_v1';
+var state=JSON.parse(localStorage.getItem(LS)||'{}');
+if(!state.picked) state.picked={};
+if(!state.bought) state.bought={};
+function save(){localStorage.setItem(LS,JSON.stringify(state));}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+
+fetch('recipes.json?v='+Date.now()).then(function(r){return r.json();}).then(function(d){
+  D=d; document.getElementById('up').textContent='更新 '+d.updated;
+  buildFilters(); render(); buildShop(); buildInfo();
+});
+
+function buildFilters(){
+  var st=[]; D.recipes.forEach(function(r){if(st.indexOf(r.style)<0)st.push(r.style);});
+  var opts=[['all','すべて '+D.recipes.length]];
+  st.forEach(function(s){opts.push(['style:'+s,s]);});
+  opts.push(['noheat','加熱なし']); opts.push(['keep5','5日もつ']);
+  var h='';
+  opts.forEach(function(o){h+='<button class="f'+(filter===o[0]?' on':'')+'" data-f="'+esc(o[0])+'">'+esc(o[1])+'</button>';});
+  var el=document.getElementById('filters'); el.innerHTML=h;
+  el.onclick=function(e){var b=e.target.closest('.f'); if(!b)return; filter=b.dataset.f; buildFilters(); render();};
+}
+
+function match(r,q){
+  if(filter==='noheat'&&r.heat!=='なし')return false;
+  if(filter==='keep5'&&r.keepDays<5)return false;
+  if(filter.indexOf('style:')===0&&r.style!==filter.slice(6))return false;
+  if(!q)return true;
+  var hay=(r.name+' '+r.style+' '+r.tags.join(' ')+' '+r.ingredients.join(' ')+' '+r.seasonings.join(' ')).toLowerCase();
+  return hay.indexOf(q.toLowerCase())>=0;
+}
+
+function render(){
+  var q=document.getElementById('q').value.trim();
+  var list=D.recipes.filter(function(r){return match(r,q);})
+    .sort(function(a,b){return b.keepDays-a.keepDays;});
+  var h='';
+  list.forEach(function(r){
+    h+='<div class="card" data-id="'+r.id+'"><h3>'+esc(r.name)+'</h3>'
+      +'<div class="chips"><span class="chip k">'+esc(r.keep)+'</span>'
+      +'<span class="chip">'+esc(r.heat==='なし'?'加熱なし':'レンジ'+r.heat)+'</span>'
+      +'<span class="chip">'+esc(r.style)+'</span>'
+      +'<span class="chip">'+r.cost+'円</span></div>'
+      +'<p class="sub">'+esc(r.ingredients.join('／'))+'</p></div>';
+  });
+  document.getElementById('cards').innerHTML=h||'<p class="empty">見つかりませんでした</p>';
+}
+document.getElementById('q').oninput=render;
+
+document.getElementById('cards').onclick=function(e){
+  var c=e.target.closest('.card'); if(!c)return; open(c.dataset.id);
+};
+
+function open(id){
+  var r=D.recipes.filter(function(x){return x.id===id;})[0]; if(!r)return;
+  var h='<h2>'+esc(r.name)+'</h2><div class="chips">'
+    +'<span class="chip k">'+esc(r.keep)+'</span>'
+    +'<span class="chip">'+esc(r.heat==='なし'?'加熱なし':'レンジ'+r.heat)+'</span>'
+    +'<span class="chip">'+esc(r.style)+'</span><span class="chip">'+r.cost+'円</span>';
+  r.tags.forEach(function(t){h+='<span class="chip">'+esc(t)+'</span>';});
+  h+='</div>';
+  h+='<div class="sec"><h4>材料</h4><ul class="ing">';
+  r.ingredients.forEach(function(i){h+='<li>'+esc(i)+'</li>';});
+  h+='</ul></div>';
+  h+='<div class="sec"><h4>調味料</h4><ul class="ing">';
+  r.seasonings.forEach(function(i){h+='<li>'+esc(i)+'</li>';});
+  h+='</ul></div>';
+  h+='<div class="sec"><h4>作り方（'+esc(r.heatNote)+'）</h4><ol class="steps">';
+  r.steps.forEach(function(s){h+='<li>'+esc(s)+'</li>';});
+  h+='</ol></div>';
+  if(r.tips&&r.tips.length){
+    h+='<div class="sec"><h4>コツ</h4>';
+    r.tips.forEach(function(t){h+='<div class="tip"><b>'+esc(t[0])+'</b>'+esc(t[1])+'</div>';});
+    h+='</div>';
+  }
+  h+='<div class="sec"><h4>出典</h4><p class="sub" style="white-space:normal">'+esc(r.source)+'（'+esc(r.added)+'）</p></div>';
+  document.getElementById('dbody').innerHTML=h;
+  document.getElementById('detail').classList.add('on');
+  document.getElementById('detail').scrollTop=0;
+  location.hash='r-'+id;
+}
+function close(){document.getElementById('detail').classList.remove('on');}
+document.getElementById('back').onclick=function(){history.back();};
+window.addEventListener('hashchange',function(){
+  if(location.hash.indexOf('#r-')===0){open(location.hash.slice(3));}else{close();}
+});
+
+/* 買い物 */
+function buildShop(){
+  var h='';
+  D.recipes.forEach(function(r){
+    h+='<label class="row"><input type="checkbox" data-p="'+r.id+'"'+(state.picked[r.id]?' checked':'')+'>'
+      +'<span class="n">'+esc(r.name)+'</span><span class="d">'+esc(r.keep)+'</span></label>';
+  });
+  var el=document.getElementById('pick'); el.innerHTML=h;
+  el.onchange=function(e){
+    var id=e.target.dataset.p; if(!id)return;
+    if(e.target.checked)state.picked[id]=1; else delete state.picked[id];
+    save(); buildList();
+  };
+  document.getElementById('pantry').innerHTML='<b>常温で買い置きできるもの</b><br>'+esc(D.pantry.join('、'))+'<br>（Amazonのまとめ買いに乗せられます）';
+  buildList();
+}
+function buildList(){
+  var items=[],sum=0;
+  D.recipes.forEach(function(r){
+    if(!state.picked[r.id])return;
+    (r.shopping||[]).forEach(function(s){
+      items.push(s); sum+=s[2];
+    });
+  });
+  var h='';
+  items.forEach(function(s,i){
+    var key=s[0];
+    h+='<label class="row'+(state.bought[key]?' done':'')+'"><input type="checkbox" data-b="'+esc(key)+'"'+(state.bought[key]?' checked':'')+'>'
+      +'<span class="n">'+esc(s[0])+'　'+esc(s[1])+'</span><span class="d">'+s[2]+'円 / '+esc(s[3])+'</span></label>';
+  });
+  document.getElementById('shoplist').innerHTML=h||'<p class="empty">上でレシピを選んでください</p>';
+  document.getElementById('sum').textContent='約'+sum+'円';
+  document.getElementById('shoplist').onchange=function(e){
+    var k=e.target.dataset.b; if(!k)return;
+    if(e.target.checked)state.bought[k]=1; else delete state.bought[k];
+    save(); buildList();
+  };
+}
+
+/* メモ */
+function buildInfo(){
+  var h='';
+  D.conditions.items.forEach(function(i){h+='<li>'+esc(i)+'</li>';});
+  document.getElementById('cond').innerHTML=h;
+  h='';
+  D.seasonings.forEach(function(s){h+='<span class="chip">'+esc(s)+'</span>';});
+  document.getElementById('seas').innerHTML=h;
+  document.getElementById('noseas').innerHTML='<b>無い前提のもの</b><br>'+esc(D.noSeasonings.join('、'));
+  h='';
+  D.guide.forEach(function(g){
+    h+='<h2 class="sech">'+esc(g.title)+'</h2><div class="'+(g.danger?'danger':'note')+'"><ul class="pl">';
+    g.items.forEach(function(i){h+='<li>'+esc(i)+'</li>';});
+    h+='</ul></div>';
+  });
+  document.getElementById('guide').innerHTML=h;
+}
+
+/* タブ */
+document.querySelector('nav').onclick=function(e){
+  var b=e.target.closest('button'); if(!b)return;
+  document.querySelectorAll('nav button').forEach(function(x){x.classList.toggle('on',x===b);});
+  document.querySelectorAll('.tabpane').forEach(function(p){p.classList.toggle('on',p.id==='pane-'+b.dataset.t);});
+  window.scrollTo(0,0);
+};
+
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js');}
+</script>
+</body>
+</html>
