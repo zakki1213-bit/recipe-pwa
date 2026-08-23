@@ -1,5 +1,5 @@
 // キャッシュ版。レシピを追加したら CACHE の番号を上げること
-const CACHE = 'tsumami-v3';
+const CACHE = 'tsumami-v4';
 const SHELL = ['./', './index.html', './manifest.json', './icons/icon-192.png'];
 
 self.addEventListener('install', e => {
@@ -15,6 +15,8 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
+  // 外部（GitHub API など）はキャッシュしない
+  if (url.origin !== self.location.origin) return;
   // レシピ本体は「通信優先」。オフラインのときだけキャッシュを使う
   if (url.pathname.endsWith('recipes.json')) {
     e.respondWith(
