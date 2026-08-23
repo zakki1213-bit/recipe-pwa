@@ -121,6 +121,14 @@ nav button{flex:1;background:none;border:none;color:var(--muted);font-family:inh
 nav button i{font-style:normal;font-size:19px;line-height:1}
 nav button.on{color:var(--accent)}
 .tabpane{display:none}.tabpane.on{display:block}
+.stars{display:inline-flex;gap:2px;font-size:13px;line-height:1;color:var(--border)}
+.stars b{color:#e8a33d;font-weight:400}
+.card .stars{margin:7px 0 0}
+.rate{display:flex;gap:4px;font-size:32px;line-height:1;color:var(--border);user-select:none}
+.rate span{padding:2px 3px;cursor:pointer}
+.rate span.on{color:#e8a33d}
+.rnote{font-size:12px;color:var(--muted);margin:8px 0 0}
+.sortbar{display:flex;gap:7px;overflow-x:auto;padding:0 0 10px;-webkit-overflow-scrolling:touch}
 </style>
 </head>
 <body>
@@ -132,6 +140,7 @@ nav button.on{color:var(--accent)}
   <section class="tabpane on" id="pane-list">
     <input class="search" id="q" type="search" placeholder="品名・材料で探す" autocomplete="off">
     <div class="filters" id="filters"></div>
+    <div class="sortbar" id="sortbar"></div>
     <div id="cards"></div>
   </section>
 
@@ -156,8 +165,11 @@ nav button.on{color:var(--accent)}
     <h2 class="sech">このアプリのレシピの条件</h2>
     <ul class="pl" id="cond"></ul>
     <h2 class="sech">使える調味料</h2>
-    <div class="seas" id="seas"></div>
-    <div class="note" id="noseas"></div>
+    <div class="note">ここを直すと、次にレシピを追加するときの前提も変わります。</div>
+    <div class="addbar"><input id="seasin" type="text" placeholder="例：オイスターソース" autocomplete="off"><button id="seasadd">追加</button></div>
+    <div class="pick" id="seaslist"></div>
+    <button class="btn sub2" id="seasreset">最初の19種に戻す</button>
+    <div class="note" id="noseas" style="margin-top:14px"></div>
     <div id="guide"></div>
   </section>
 </main>
@@ -168,13 +180,13 @@ nav button.on{color:var(--accent)}
   <div class="dbody">
     <h2>設定</h2>
     <div class="stat" id="syncstat">確認中…</div>
-    <p class="field">GitHubトークン（この端末に保存されます。削除したレシピ・好みでない食材を保存するために使います）</p>
+    <p class="field">GitHubトークン（この端末に保存されます。削除したレシピ・好みでない食材・評価・調味料を保存するために使います）</p>
     <input class="tin" id="token" type="password" placeholder="ghp_… / github_pat_…" autocomplete="off">
     <button class="btn" id="tsave">保存して同期する</button>
     <button class="btn sub2" id="tclear">この端末からトークンを消す</button>
     <div class="note" style="margin-top:14px">
       トークンは <b>gist</b> の権限だけで足ります。メモ・MyTodo で使っているものがそのまま使えます。<br>
-      入れない場合、削除と好みでない食材はこの端末にだけ残り、共有されません。
+      入れない場合、削除・好みでない食材・評価・調味料はこの端末にだけ残り、共有されません。
     </div>
   </div>
 </div>
@@ -191,9 +203,12 @@ var D=null, filter='all', LS='recipe_pwa_v1', PS='recipe_pwa_prefs', TK='recipe_
 var state=JSON.parse(localStorage.getItem(LS)||'{}');
 if(!state.picked) state.picked={};
 if(!state.bought) state.bought={};
-var prefs=JSON.parse(localStorage.getItem(PS)||'{"hidden":[],"ng":[]}');
+var prefs=JSON.parse(localStorage.getItem(PS)||'{"hidden":[],"ng":[],"rate":{},"seasonings":null}');
 if(!prefs.hidden) prefs.hidden=[];
 if(!prefs.ng) prefs.ng=[];
+if(!prefs.rate) prefs.rate={};
+if(typeof prefs.seasonings==='undefined') prefs.seasonings=null;
+var sortBy='rate';
 var token=localStorage.getItem(TK)||'', syncMsg='';
 
 function save(){localStorage.setItem(LS,JSON.stringify(state));}
@@ -209,7 +224,9 @@ function pullPrefs(){
     .then(function(g){
       var f=g.files[PFILE]; if(!f)throw new Error('no file');
       var p=JSON.parse(f.content);
-      prefs.hidden=p.hidden||[]; prefs.ng=p.ng||[]; prefs.updated=p.updated||'';
+      prefs.hidden=p.hidden||[]; prefs.ng=p.ng||[]; prefs.rate=p.rate||{};
+      prefs.seasonings=(p.seasonings&&p.seasonings.length)?p.seasonings:null;
+      prefs.updated=p.updated||'';
       savePrefsLocal();
       setStat('同期できています（更新 '+(prefs.updated||'—')+'）','ok');
     })
@@ -220,7 +237,8 @@ function pushPrefs(){
   if(!token){setStat('この端末にだけ保存しました。共有するには⚙️でトークンを入れてください','ng');return Promise.resolve();}
   prefs.updated=new Date().toISOString().slice(0,10);
   var body={files:{}};
-  body.files[PFILE]={content:JSON.stringify({hidden:prefs.hidden,ng:prefs.ng,updated:prefs.updated},null,1)};
+  body.files[PFILE]={content:JSON.stringify({hidden:prefs.hidden,ng:prefs.ng,rate:prefs.rate,
+    seasonings:prefs.seasonings,updated:prefs.updated},null,1)};
   return fetch('https://api.github.com/gists/'+GIST,{method:'PATCH',
       headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json'},
       body:JSON.stringify(body)})
@@ -240,7 +258,7 @@ Promise.all([
   pullPrefs()
 ]).then(function(a){
   D=a[0]; document.getElementById('up').textContent='更新 '+D.updated;
-  buildFilters(); render(); buildShop(); buildInfo();
+  buildFilters(); buildSort(); render(); buildShop(); buildInfo();
 });
 
 function visible(){return D.recipes.filter(function(r){return prefs.hidden.indexOf(r.id)<0;});}
@@ -257,6 +275,27 @@ function buildFilters(){
   el.onclick=function(e){var b=e.target.closest('.f'); if(!b)return; filter=b.dataset.f; buildFilters(); render();};
 }
 
+/* --- 評価・並べ替え --- */
+var SORTS=[['rate','評価が高い順'],['keep','日持ちが長い順'],['cost','安い順']];
+function rateOf(id){return prefs.rate[id]||0;}
+function starsHtml(n){var h='';for(var i=1;i<=5;i++){h+=(i<=n?'<b>\u2605</b>':'\u2606');}return '<span class="stars">'+h+'</span>';}
+function buildSort(){
+  var h='';
+  SORTS.forEach(function(o){h+='<button class="f'+(sortBy===o[0]?' on':'')+'" data-s="'+o[0]+'">'+esc(o[1])+'</button>';});
+  var el=document.getElementById('sortbar'); el.innerHTML=h;
+  el.onclick=function(e){var b=e.target.closest('.f'); if(!b)return; sortBy=b.dataset.s; buildSort(); render();};
+}
+function cmp(a,b){
+  if(sortBy==='rate'){var d=rateOf(b.id)-rateOf(a.id); if(d)return d; return b.keepDays-a.keepDays;}
+  if(sortBy==='cost'){var c=a.cost-b.cost; if(c)return c; return b.keepDays-a.keepDays;}
+  return b.keepDays-a.keepDays;
+}
+function paintRate(id){
+  var el=document.getElementById('rate'); if(!el)return;
+  var v=rateOf(id);
+  [].forEach.call(el.children,function(sp){sp.classList.toggle('on',+sp.dataset.star<=v);});
+}
+
 function match(r,q){
   if(filter==='noheat'&&r.heat!=='なし')return false;
   if(filter==='keep5'&&r.keepDays<5)return false;
@@ -268,8 +307,7 @@ function match(r,q){
 
 function render(){
   var q=document.getElementById('q').value.trim();
-  var list=visible().filter(function(r){return match(r,q);})
-    .sort(function(a,b){return b.keepDays-a.keepDays;});
+  var list=visible().filter(function(r){return match(r,q);}).sort(cmp);
   var h='';
   list.forEach(function(r){
     h+='<div class="card" data-id="'+r.id+'"><h3>'+esc(r.name)+'</h3>'
@@ -277,7 +315,8 @@ function render(){
       +'<span class="chip">'+esc(r.heat==='なし'?'加熱なし':'レンジ'+r.heat)+'</span>'
       +'<span class="chip">'+esc(r.style)+'</span>'
       +'<span class="chip">'+r.cost+'円</span></div>'
-      +'<p class="sub">'+esc(r.ingredients.join('／'))+'</p></div>';
+      +'<p class="sub">'+esc(r.ingredients.join('／'))+'</p>'
+      +(rateOf(r.id)?starsHtml(rateOf(r.id)):'')+'</div>';
   });
   document.getElementById('cards').innerHTML=h||'<p class="empty">見つかりませんでした</p>';
 }
@@ -294,6 +333,9 @@ function open(id){
     +'<span class="chip">'+esc(r.style)+'</span><span class="chip">'+r.cost+'円</span>';
   r.tags.forEach(function(t){h+='<span class="chip">'+esc(t)+'</span>';});
   h+='</div>';
+  h+='<div class="sec"><h4>評価</h4><div class="rate" id="rate" data-id="'+esc(r.id)+'">';
+  for(var si=1;si<=5;si++){h+='<span data-star="'+si+'"'+(si<=rateOf(r.id)?' class="on"':'')+'>\u2605</span>';}
+  h+='</div><p class="rnote">同じ星をもう一度押すと未評価に戻ります</p></div>';
   h+='<div class="sec"><h4>材料</h4><ul class="ing">';
   r.ingredients.forEach(function(i){h+='<li>'+esc(i)+'</li>';});
   h+='</ul></div><div class="sec"><h4>調味料</h4><ul class="ing">';
@@ -320,6 +362,13 @@ window.addEventListener('hashchange',function(){
   if(location.hash.indexOf('#r-')===0){open(location.hash.slice(3));}else{close();}
 });
 document.getElementById('dbody').onclick=function(e){
+  var st=e.target.closest('[data-star]');
+  if(st){
+    var rid=st.parentNode.dataset.id, v=+st.dataset.star;
+    if(rateOf(rid)===v) delete prefs.rate[rid]; else prefs.rate[rid]=v;
+    pushPrefs(); paintRate(rid); render();
+    return;
+  }
   var b=e.target.closest('[data-del]'); if(!b)return;
   var r=D.recipes.filter(function(x){return x.id===b.dataset.del;})[0];
   if(!confirm(r.name+' を削除します。\n次に私がレシピを追加するときも、これは出しません。\n（メモタブから元に戻せます）'))return;
@@ -328,7 +377,7 @@ document.getElementById('dbody').onclick=function(e){
   pushPrefs(); refreshAll(); history.back();
 };
 
-function refreshAll(){buildFilters();render();buildShop();buildInfo();}
+function refreshAll(){buildFilters();buildSort();render();buildShop();buildInfo();}
 
 /* --- 買い物 --- */
 function buildShop(){
@@ -401,8 +450,10 @@ function buildInfo(){
   D.conditions.items.forEach(function(i){h+='<li>'+esc(i)+'</li>';});
   document.getElementById('cond').innerHTML=h;
   h='';
-  D.seasonings.forEach(function(s){h+='<span class="chip">'+esc(s)+'</span>';});
-  document.getElementById('seas').innerHTML=h;
+  seasList().forEach(function(s,i){
+    h+='<div class="line"><span>'+esc(s)+'</span><button data-se="'+i+'">消す</button></div>';
+  });
+  document.getElementById('seaslist').innerHTML=h||'<p class="empty">ありません</p>';
   document.getElementById('noseas').innerHTML='<b>無い前提のもの</b><br>'+esc(D.noSeasonings.join('、'));
   h='';
   D.guide.forEach(function(g){
@@ -412,6 +463,33 @@ function buildInfo(){
   });
   document.getElementById('guide').innerHTML=h;
 }
+function seasList(){
+  if(prefs.seasonings===null||prefs.seasonings===undefined)return D?D.seasonings.slice():[];
+  return prefs.seasonings;
+}
+function ensureSeas(){
+  if(prefs.seasonings===null||prefs.seasonings===undefined)prefs.seasonings=D?D.seasonings.slice():[];
+}
+function addSeas(){
+  var el=document.getElementById('seasin'), v=el.value.trim();
+  if(!v)return;
+  ensureSeas();
+  if(prefs.seasonings.indexOf(v)<0)prefs.seasonings.push(v);
+  el.value=''; pushPrefs(); buildInfo();
+}
+document.getElementById('seasadd').onclick=addSeas;
+document.getElementById('seasin').onkeydown=function(e){if(e.key==='Enter')addSeas();};
+document.getElementById('seaslist').onclick=function(e){
+  var b=e.target.closest('[data-se]'); if(!b)return;
+  ensureSeas();
+  prefs.seasonings.splice(+b.dataset.se,1);
+  pushPrefs(); buildInfo();
+};
+document.getElementById('seasreset').onclick=function(){
+  if(!confirm('使える調味料を、最初の19種に戻します。'))return;
+  prefs.seasonings=null; pushPrefs(); buildInfo();
+};
+
 function addNg(){
   var el=document.getElementById('ngin'), v=el.value.trim();
   if(!v)return;
